@@ -7,6 +7,8 @@ use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
 use Throwable;
 use Toalett\Multiprocessing\Exception\ProcessControlException;
+use Toalett\Multiprocessing\ProcessControl\PCNTL;
+use Toalett\Multiprocessing\ProcessControl\ProcessControl;
 
 class Workers implements Countable, EventEmitterInterface
 {
@@ -14,18 +16,19 @@ class Workers implements Countable, EventEmitterInterface
 
 	/** @var int[] */
 	private array $workers = [];
+	private ProcessControl $processControl;
+
+	public function __construct(?ProcessControl $processControl = null)
+	{
+		$this->processControl = $processControl ?? new PCNTL();
+	}
 
 	public function count(): int
 	{
 		return count($this->workers);
 	}
 
-	public function empty(): bool
-	{
-		return count($this->workers) === 0;
-	}
-
-	public function createWorkerFor(callable $task, array $args): void
+	public function createWorkerFor(callable $task, array $args = []): void
 	{
 		$pid = $this->forkWorker($task, $args);
 		$this->workers[$pid] = $pid;
@@ -50,12 +53,12 @@ class Workers implements Countable, EventEmitterInterface
 
 	private function forkWorker(callable $task, array $args): int
 	{
-		$pid = pcntl_fork();
-		if ($pid === -1) {
+		$fork = $this->processControl->fork();
+		if ($fork->failed()) {
 			throw ProcessControlException::forkFailed();
 		}
 
-		if ($pid === 0) {
+		if ($fork->isChild()) {
 			try {
 				call_user_func_array($task, $args);
 			} catch (Throwable $t) {
@@ -65,7 +68,7 @@ class Workers implements Countable, EventEmitterInterface
 			exit(0);
 		}
 
-		return $pid;
+		return $fork->pid;
 	}
 
 	/**
@@ -74,9 +77,9 @@ class Workers implements Countable, EventEmitterInterface
 	 */
 	private function wait(int $options = 0): bool
 	{
-		$pid = pcntl_wait($status, $options);
-		if ($pid > 0) {
-			$this->remove($pid);
+		$wait = $this->processControl->wait($options);
+		if ($wait->childStopped()) {
+			$this->remove($wait->pid);
 			return true;
 		}
 		// We ignore errors ($pid < 0). This method is called periodically, even if there is
@@ -86,6 +89,6 @@ class Workers implements Countable, EventEmitterInterface
 
 	public function stop(): void
 	{
-		while (true === $this->wait());
+		while (true === $this->wait()) ;
 	}
 }

@@ -29,7 +29,7 @@ class Context implements EventEmitterInterface
 
 		$this->workers->on('worker_started', fn(int $pid) => $this->emit('worker_started', [$pid]));
 		$this->workers->on('worker_stopped', fn(int $pid) => $this->emit('worker_stopped', [$pid]));
-		$this->workers->on('worker_stopped', fn() => $this->emitIf($this->workers->empty(), 'no_workers_remaining'));
+		$this->workers->on('worker_stopped', fn() => $this->emitIf(empty($this->workers), 'no_workers_remaining'));
 	}
 
 	public function submit(callable $task, ...$args): void
