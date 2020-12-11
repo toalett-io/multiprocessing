@@ -1,0 +1,38 @@
+{
+    "name": "toalett/multiprocessing",
+    "type": "library",
+    "description": "Context for easy multiprocessing",
+    "keywords": ["multiprocessing", "threading", "task", "job", "multicore"],
+    "homepage": "https://github.com/toalett/php-multiprocessing",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Joop Schilder",
+            "homepage": "https://joopschilder.nl"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Toalett\\Multiprocessing\\": ["src"]
+        },
+        "exclude-from-classmap": [
+            "**/Tests/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Toalett\\Multiprocessing\\Tests\\": ["src/Tests"]
+        }
+    },
+    "require": {
+        "php": ">=7.4",
+        "ext-pcntl": "*",
+        "react/event-loop": "^1.1",
+        "evenement/evenement": "^3.0"
+    },
+    "extra": {
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5.0"
+    }
+}
