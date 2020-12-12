@@ -9,7 +9,7 @@ class ConcurrencyLimit
     private const VALUE_UNLIMITED = -1;
     private int $limit;
 
-    public function __construct(int $limit)
+    private function __construct(int $limit)
     {
         if ($limit === 0 || $limit < self::VALUE_UNLIMITED) {
             throw new InvalidArgumentException('-1 or positive integer', $limit);
@@ -20,6 +20,11 @@ class ConcurrencyLimit
     public static function singleWorker(): self
     {
         return new self(1);
+    }
+
+    public static function atMost(int $limit): self
+    {
+    	return new self($limit);
     }
 
     public static function unlimited(): self

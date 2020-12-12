@@ -4,6 +4,8 @@ namespace Toalett\Multiprocessing\ProcessControl;
 
 class Wait
 {
+	public const NO_HANG = WNOHANG;
+	public const UNTRACED = WUNTRACED;
 	public int $pid;
 	public int $status;
 

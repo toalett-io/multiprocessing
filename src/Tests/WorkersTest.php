@@ -49,8 +49,8 @@ class WorkersTest extends TestCase
 		$workers->on('worker_started', function () use (&$workerStartedEventHasTakenPlace) {
 			$workerStartedEventHasTakenPlace = true;
 		});
-		self::assertFalse($workerStartedEventHasTakenPlace);
 
+		self::assertFalse($workerStartedEventHasTakenPlace);
 		$workers->createWorkerFor(fn() => exit(0), []);
 		self::assertTrue($workerStartedEventHasTakenPlace);
 	}
@@ -72,6 +72,20 @@ class WorkersTest extends TestCase
 		self::assertTrue($workerStoppedEventHasTakenPlace);
 	}
 
+	public function testItEmitsAnEventWhenNoWorkersRemain(): void
+	{
+		$workers = new Workers();
+
+		$noWorkersRemainingEventHasTakenPlace = false;
+		$workers->on('no_workers_remaining', function () use (&$noWorkersRemainingEventHasTakenPlace) {
+			$noWorkersRemainingEventHasTakenPlace = true;
+		});
+
+		self::assertFalse($noWorkersRemainingEventHasTakenPlace);
+		$workers->cleanup();
+		self::assertTrue($noWorkersRemainingEventHasTakenPlace);
+	}
+
 	public function testItCallsForkOnProcessControlWhenAskedToCreateAWorker(): void
 	{
 		$processControl = $this->createMock(ProcessControl::class);
@@ -88,7 +102,7 @@ class WorkersTest extends TestCase
 		$processControl = $this->createMock(ProcessControl::class);
 		$processControl->expects(self::once())
 			->method('wait')
-			->with(WNOHANG)
+			->with(Wait::NO_HANG)
 			->willReturn(new Wait(0));
 
 		$workers = new Workers($processControl);

@@ -7,6 +7,7 @@ use React\EventLoop\LoopInterface;
 use Toalett\Multiprocessing\ConcurrencyLimit;
 use Toalett\Multiprocessing\ContextBuilder;
 use Toalett\Multiprocessing\Tests\Tools\PropertyInspector;
+use Toalett\Multiprocessing\Workers;
 
 class ContextBuilderTest extends TestCase
 {
@@ -22,14 +23,14 @@ class ContextBuilderTest extends TestCase
 		self::assertNotSame($builder->withLimit($limit), $builder);
 	}
 
-	public function testItGivesBackANewContextEachTimeBuildIsInvoked(): void
+	public function testItBuildsANewContextEveryTime(): void
 	{
 		$builder = ContextBuilder::create();
 
 		self::assertNotSame($builder->build(), $builder->build());
 	}
 
-	public function testItCreatesANewContextWithUnlimitedConcurrencyWhenSupplyingNoArguments(): void
+	public function testTheDefaultConcurrencyLimitIsUnlimited(): void
 	{
 		$builder = ContextBuilder::create();
 
@@ -44,7 +45,7 @@ class ContextBuilderTest extends TestCase
 		self::assertTrue($limit->isUnlimited());
 	}
 
-	public function testWhenSuppliedWithACustomEventLoopItUsesThatEventLoop(): void
+	public function testWhenGivenAnEventLoopItUsesThatLoop(): void
 	{
 		$builder = ContextBuilder::create();
 		$eventLoop = $this->createMock(LoopInterface::class);
@@ -55,7 +56,7 @@ class ContextBuilderTest extends TestCase
 		self::assertSame($eventLoop, $usedEventLoop);
 	}
 
-	public function testWhenSuppliedWithACustomConcurrencyLimitItUsesThatLimit(): void
+	public function testWhenGivenAConcurrencyLimitItUsesThatLimit(): void
 	{
 		$builder = ContextBuilder::create();
 		$limit = $this->createMock(ConcurrencyLimit::class);
@@ -64,5 +65,16 @@ class ContextBuilderTest extends TestCase
 		$usedLimit = $this->getProperty($context, 'limit');
 
 		self::assertSame($limit, $usedLimit);
+	}
+
+	public function testWhenGivenWorkersItUsesThatWorkers(): void
+	{
+		$builder = ContextBuilder::create();
+		$workers = $this->createMock(Workers::class);
+
+		$context = $builder->withWorkers($workers)->build();
+		$usedWorkers = $this->getProperty($context, 'workers');
+
+		self::assertSame($workers, $usedWorkers);
 	}
 }

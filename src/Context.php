@@ -5,31 +5,42 @@ namespace Toalett\Multiprocessing;
 use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
 use React\EventLoop\LoopInterface;
+use Toalett\Multiprocessing\Task\Interval;
+use Toalett\Multiprocessing\Task\RepeatedTask;
+use Toalett\Multiprocessing\Task\Tasks;
 
 class Context implements EventEmitterInterface
 {
-	public const GC_INTERVAL = 120;
-	public const CLEANUP_INTERVAL = 5;
+	public const INTERVAL_GC = 120;
+	public const INTERVAL_CLEANUP = 5;
 	use EventEmitterTrait;
 
 	private LoopInterface $eventLoop;
 	private ConcurrencyLimit $limit;
 	private Workers $workers;
+	private Tasks $maintenanceTasks;
 
-	public function __construct(LoopInterface $eventLoop, ConcurrencyLimit $limit, ?Workers $workers = null)
+	public function __construct(
+		LoopInterface $eventLoop,
+		ConcurrencyLimit $limit,
+		?Workers $workers = null,
+		?Interval $cleanupInterval = null,
+		?Interval $garbageCollectionInterval = null
+	)
 	{
 		$this->eventLoop = $eventLoop;
 		$this->limit = $limit;
 		$this->workers = $workers ?? new Workers();
+		$this->setupWorkerEventForwarding();
+		$this->setupMaintenanceTasks($cleanupInterval, $garbageCollectionInterval);
+	}
 
+	public function run(): void
+	{
 		$this->eventLoop->futureTick(fn() => $this->emit('booted'));
 		$this->eventLoop->futureTick(fn() => gc_enable());
-		$this->eventLoop->addPeriodicTimer(self::CLEANUP_INTERVAL, fn() => $this->workers->cleanup());
-		$this->eventLoop->addPeriodicTimer(self::GC_INTERVAL, fn() => gc_collect_cycles());
-
-		$this->workers->on('worker_started', fn(int $pid) => $this->emit('worker_started', [$pid]));
-		$this->workers->on('worker_stopped', fn(int $pid) => $this->emit('worker_stopped', [$pid]));
-		$this->workers->on('worker_stopped', fn() => $this->emitIf(empty($this->workers), 'no_workers_remaining'));
+		$this->maintenanceTasks->enable($this->eventLoop);
+		$this->eventLoop->run();
 	}
 
 	public function submit(callable $task, ...$args): void
@@ -44,24 +55,31 @@ class Context implements EventEmitterInterface
 		});
 	}
 
-	public function run(): void
-	{
-		$this->eventLoop->run();
-	}
-
 	public function stop(): void
 	{
-		$this->eventLoop->futureTick(function()  {
-			$this->eventLoop->stop();
-			$this->workers->stop();
-			$this->emit('stopped');
-		});
+		$this->maintenanceTasks->cancel();
+		$this->workers->stop();
+		$this->emit('stopped');
 	}
 
-	public function emitIf(bool $condition, string $event, ...$args): void
+	private function setupWorkerEventForwarding(): void
 	{
-		if ($condition) {
-			$this->emit($event, $args);
-		}
+		$this->workers->on('worker_started', fn(int $pid) => $this->emit('worker_started', [$pid]));
+		$this->workers->on('worker_stopped', fn(int $pid) => $this->emit('worker_stopped', [$pid]));
+		$this->workers->on('no_workers_remaining', fn() => $this->emit('no_workers_remaining'));
+	}
+
+	private function setupMaintenanceTasks(?Interval $cleanupInterval, ?Interval $garbageCollectionInterval): void
+	{
+		$this->maintenanceTasks = new Tasks(
+			new RepeatedTask(
+				$cleanupInterval ?? Interval::seconds(self::INTERVAL_CLEANUP),
+				fn() => $this->workers->cleanup()
+			),
+			new RepeatedTask(
+				$garbageCollectionInterval ?? Interval::seconds(self::INTERVAL_GC),
+				fn() => gc_collect_cycles()
+			)
+		);
 	}
 }

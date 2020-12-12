@@ -9,6 +9,7 @@ use Throwable;
 use Toalett\Multiprocessing\Exception\ProcessControlException;
 use Toalett\Multiprocessing\ProcessControl\PCNTL;
 use Toalett\Multiprocessing\ProcessControl\ProcessControl;
+use Toalett\Multiprocessing\ProcessControl\Wait;
 
 class Workers implements Countable, EventEmitterInterface
 {
@@ -37,7 +38,10 @@ class Workers implements Countable, EventEmitterInterface
 
 	public function cleanup(): void
 	{
-		while (true === $this->wait(WNOHANG)) ;
+		while (true === $this->wait(Wait::NO_HANG)) ;
+		if (0 === count($this)) {
+			$this->emit('no_workers_remaining');
+		}
 	}
 
 	public function awaitCongestionRelief(): void

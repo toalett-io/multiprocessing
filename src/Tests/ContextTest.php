@@ -5,6 +5,7 @@ namespace Toalett\Multiprocessing\Tests;
 use PHPUnit\Framework\TestCase;
 use React\EventLoop\Factory;
 use React\EventLoop\LoopInterface;
+use React\EventLoop\Timer\Timer;
 use Toalett\Multiprocessing\ConcurrencyLimit;
 use Toalett\Multiprocessing\Context;
 use Toalett\Multiprocessing\Workers;
@@ -36,21 +37,24 @@ class ContextTest extends TestCase
 		$context = new Context($loop, $limit);
 
 		$limit->method('isReachedBy')->willReturn(true); // trigger congestion
-		$loop->futureTick(fn() => $context->stop());
 
 		$congestionEventHasTakenPlace = false;
-		$congestionRelievedEventHasTakenPlace = false;
 		$context->on('congestion', function () use (&$congestionEventHasTakenPlace) {
 			$congestionEventHasTakenPlace = true;
 		});
+
+		$congestionRelievedEventHasTakenPlace = false;
 		$context->on('congestion_relieved', function () use (&$congestionRelievedEventHasTakenPlace) {
 			$congestionRelievedEventHasTakenPlace = true;
 		});
 
 		self::assertFalse($congestionEventHasTakenPlace);
 		self::assertFalse($congestionRelievedEventHasTakenPlace);
-		$context->submit(fn() => []);
+
+		$loop->futureTick(fn() => $context->stop());
+		$context->submit(static fn() => null);
 		$context->run();
+
 		self::assertTrue($congestionEventHasTakenPlace);
 		self::assertTrue($congestionRelievedEventHasTakenPlace);
 	}
@@ -62,36 +66,47 @@ class ContextTest extends TestCase
 		$context = new Context($loop, $limit);
 
 		$limit->method('isReachedBy')->willReturn(false);
-		$loop->expects(self::once())->method('futureTick')->withConsecutive(
-			[fn() => []],
-		);
+		$loop->expects(self::once())
+			->method('futureTick')
+			->withConsecutive([
+				static fn() => null,
+			]);
 
-		$context->submit(fn() => []);
+		$context->submit(static fn() => null);
 	}
 
-	public function testItRegistersMaintenanceCallbacksOnTheEventLoop(): void
+	public function testItRegistersMaintenanceTasksOnTheEventLoop(): void
 	{
 		$loop = $this->createMock(LoopInterface::class);
 		$limit = $this->createMock(ConcurrencyLimit::class);
 
-		$loop->expects(self::exactly(2))->method('addPeriodicTimer')->withConsecutive(
-			[Context::CLEANUP_INTERVAL, fn() => []],
-			[Context::GC_INTERVAL, fn() => []]
-		);
+		$loop->expects(self::exactly(2))
+			->method('addPeriodicTimer')
+			->withConsecutive(
+				[Context::INTERVAL_CLEANUP, static fn() => null],
+				[Context::INTERVAL_GC, static fn() => null]
+			)->willReturnOnConsecutiveCalls(
+				new Timer(Context::INTERVAL_CLEANUP, static fn() => null),
+				new Timer(Context::INTERVAL_GC, static fn() => null),
+			);
 
-		new Context($loop, $limit);
+		$context = new Context($loop, $limit);
+		$context->run();
 	}
 
-	public function testItProxiesWorkersEventsToSelf(): void
+	public function testItForwardsWorkersEventsToSelf(): void
 	{
 		$loop = $this->createMock(LoopInterface::class);
 		$limit = $this->createMock(ConcurrencyLimit::class);
 		$workers = $this->createMock(Workers::class);
 
-		$workers->expects(self::atLeast(2))->method('on')->withConsecutive(
-			['worker_started', fn() => []],
-			['worker_stopped', fn() => []]
-		);
+		$workers->expects(self::exactly(3))
+			->method('on')
+			->withConsecutive(
+				['worker_started', static fn() => null],
+				['worker_stopped', static fn() => null],
+				['no_workers_remaining', static fn() => null]
+			);
 
 		new Context($loop, $limit, $workers);
 	}
