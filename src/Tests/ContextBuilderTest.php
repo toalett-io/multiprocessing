@@ -4,77 +4,77 @@ namespace Toalett\Multiprocessing\Tests;
 
 use PHPUnit\Framework\TestCase;
 use React\EventLoop\LoopInterface;
-use Toalett\Multiprocessing\ConcurrencyLimit;
+use Toalett\Multiprocessing\Concurrency;
 use Toalett\Multiprocessing\ContextBuilder;
 use Toalett\Multiprocessing\Tests\Tools\PropertyInspector;
 use Toalett\Multiprocessing\Workers;
 
 class ContextBuilderTest extends TestCase
 {
-	use PropertyInspector;
+    use PropertyInspector;
 
-	public function testItIsImmutable(): void
-	{
-		$builder = ContextBuilder::create();
-		$eventLoop = $this->createMock(LoopInterface::class);
-		$limit = $this->createMock(ConcurrencyLimit::class);
+    public function testItIsImmutable(): void
+    {
+        $builder = ContextBuilder::create();
+        $eventLoop = $this->createMock(LoopInterface::class);
+        $concurrency = $this->createMock(Concurrency::class);
 
-		self::assertNotSame($builder->withEventLoop($eventLoop), $builder);
-		self::assertNotSame($builder->withLimit($limit), $builder);
-	}
+        self::assertNotSame($builder->withEventLoop($eventLoop), $builder);
+        self::assertNotSame($builder->withConcurrency($concurrency), $builder);
+    }
 
-	public function testItBuildsANewContextEveryTime(): void
-	{
-		$builder = ContextBuilder::create();
+    public function testItBuildsANewContextEveryTime(): void
+    {
+        $builder = ContextBuilder::create();
 
-		self::assertNotSame($builder->build(), $builder->build());
-	}
+        self::assertNotSame($builder->build(), $builder->build());
+    }
 
-	public function testTheDefaultConcurrencyLimitIsUnlimited(): void
-	{
-		$builder = ContextBuilder::create();
+    public function testTheDefaultConcurrencyIsUnlimited(): void
+    {
+        $builder = ContextBuilder::create();
 
-		$context = $builder->build();
-		self::assertIsObject($context);
-		self::assertInstanceOf(LoopInterface::class, $this->getProperty($context, 'eventLoop'));
+        $context = $builder->build();
+        self::assertIsObject($context);
+        self::assertInstanceOf(LoopInterface::class, $this->getProperty($context, 'eventLoop'));
 
-		/** @var ConcurrencyLimit|null $limit */
-		$limit = $this->getProperty($context, 'limit');
-		self::assertIsObject($limit);
-		self::assertInstanceOf(ConcurrencyLimit::class, $limit);
-		self::assertTrue($limit->isUnlimited());
-	}
+        /** @var Concurrency|null $concurrency */
+        $concurrency = $this->getProperty($context, 'concurrency');
+        self::assertIsObject($concurrency);
+        self::assertInstanceOf(Concurrency::class, $concurrency);
+        self::assertTrue($concurrency->isUnlimited());
+    }
 
-	public function testWhenGivenAnEventLoopItUsesThatLoop(): void
-	{
-		$builder = ContextBuilder::create();
-		$eventLoop = $this->createMock(LoopInterface::class);
+    public function testWhenGivenAnEventLoopItUsesThatLoop(): void
+    {
+        $builder = ContextBuilder::create();
+        $eventLoop = $this->createMock(LoopInterface::class);
 
-		$context = $builder->withEventLoop($eventLoop)->build();
-		$usedEventLoop = $this->getProperty($context, 'eventLoop');
+        $context = $builder->withEventLoop($eventLoop)->build();
+        $usedEventLoop = $this->getProperty($context, 'eventLoop');
 
-		self::assertSame($eventLoop, $usedEventLoop);
-	}
+        self::assertSame($eventLoop, $usedEventLoop);
+    }
 
-	public function testWhenGivenAConcurrencyLimitItUsesThatLimit(): void
-	{
-		$builder = ContextBuilder::create();
-		$limit = $this->createMock(ConcurrencyLimit::class);
+    public function testWhenGivenAConcurrencyItUsesThatConcurrency(): void
+    {
+        $builder = ContextBuilder::create();
+        $concurrency = $this->createMock(Concurrency::class);
 
-		$context = $builder->withLimit($limit)->build();
-		$usedLimit = $this->getProperty($context, 'limit');
+        $context = $builder->withConcurrency($concurrency)->build();
+        $usedConcurrency = $this->getProperty($context, 'concurrency');
 
-		self::assertSame($limit, $usedLimit);
-	}
+        self::assertSame($concurrency, $usedConcurrency);
+    }
 
-	public function testWhenGivenWorkersItUsesThatWorkers(): void
-	{
-		$builder = ContextBuilder::create();
-		$workers = $this->createMock(Workers::class);
+    public function testWhenGivenWorkersItUsesThatWorkers(): void
+    {
+        $builder = ContextBuilder::create();
+        $workers = $this->createMock(Workers::class);
 
-		$context = $builder->withWorkers($workers)->build();
-		$usedWorkers = $this->getProperty($context, 'workers');
+        $context = $builder->withWorkers($workers)->build();
+        $usedWorkers = $this->getProperty($context, 'workers');
 
-		self::assertSame($workers, $usedWorkers);
-	}
+        self::assertSame($workers, $usedWorkers);
+    }
 }

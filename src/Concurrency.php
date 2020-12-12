@@ -4,7 +4,7 @@ namespace Toalett\Multiprocessing;
 
 use Toalett\Multiprocessing\Exception\InvalidArgumentException;
 
-class ConcurrencyLimit
+class Concurrency
 {
     private const VALUE_UNLIMITED = -1;
     private int $limit;
@@ -24,7 +24,7 @@ class ConcurrencyLimit
 
     public static function atMost(int $limit): self
     {
-    	return new self($limit);
+        return new self($limit);
     }
 
     public static function unlimited(): self

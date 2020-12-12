@@ -1,16 +1,16 @@
 <?php
 
+use React\EventLoop\Factory;
+use Toalett\Multiprocessing\Concurrency;
 use Toalett\Multiprocessing\ContextBuilder;
-use Toalett\Multiprocessing\ConcurrencyLimit;
-use React\EventLoop\Factory as EventLoopFactory;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-$loop = EventLoopFactory::create();
+$loop = Factory::create();
 $context = ContextBuilder::create()
-	->withEventLoop($loop)
-	->withLimit(ConcurrencyLimit::atMost(4))
-	->build();
+    ->withEventLoop($loop)
+    ->withConcurrency(Concurrency::atMost(4))
+    ->build();
 
 $context->on('booted', fn() => print("🚽 Toalett Multiprocessing Context\n"));
 $context->on('congestion', fn() => print('C'));
