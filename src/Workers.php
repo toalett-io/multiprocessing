@@ -5,8 +5,8 @@ namespace Toalett\Multiprocessing;
 use Countable;
 use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
+use RuntimeException;
 use Throwable;
-use Toalett\Multiprocessing\Exception\ProcessControlException;
 use Toalett\Multiprocessing\ProcessControl\PCNTL;
 use Toalett\Multiprocessing\ProcessControl\ProcessControl;
 use Toalett\Multiprocessing\ProcessControl\Wait;
@@ -59,7 +59,7 @@ class Workers implements Countable, EventEmitterInterface
     {
         $fork = $this->processControl->fork();
         if ($fork->failed()) {
-            throw ProcessControlException::forkFailed();
+            throw new RuntimeException('Could not fork process');
         }
 
         if ($fork->isChild()) {
