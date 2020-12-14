@@ -29,9 +29,9 @@ class Workers implements Countable, EventEmitterInterface
         return count($this->workers);
     }
 
-    public function createWorkerFor(callable $task, array $args = []): void
+    public function createWorkerFor(callable $job, array $args = []): void
     {
-        $pid = $this->forkWorker($task, $args);
+        $pid = $this->forkWorker($job, $args);
         $this->workers[$pid] = $pid;
         $this->emit('worker_started', [$pid]);
     }

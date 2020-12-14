@@ -42,15 +42,15 @@ class Context implements EventEmitterInterface
         $this->eventLoop->run();
     }
 
-    public function submit(callable $task, ...$args): void
+    public function submit(callable $job, ...$args): void
     {
-        $this->eventLoop->futureTick(function () use ($task, $args) {
+        $this->eventLoop->futureTick(function () use ($job, $args) {
             if ($this->concurrency->isReachedBy(count($this->workers))) {
                 $this->emit('congestion');
                 $this->workers->awaitCongestionRelief();
                 $this->emit('congestion_relieved');
             }
-            $this->workers->createWorkerFor($task, $args);
+            $this->workers->createWorkerFor($job, $args);
         });
     }
 
