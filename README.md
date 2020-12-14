@@ -4,29 +4,104 @@ Welcome to Toalett, a humble initiative based around the idea that all software 
 Toalett is the Norwegian word for toilet. It feels fancier than plain "toilet".
 
 ## Why `toalett/multiprocessing`?
-[Multiprocessing](https://nl.wikipedia.org/wiki/Multiprocessing) is a technique that is often used in PHP (cli) applications to execute tasks asynchronously.
-Due to the lack of native [multithreading](https://en.wikipedia.org/wiki/Multithreading_(computer_architecture)) in PHP, developers have to rely on
-good old multiprocessing to do this.  
+
+[Multiprocessing](https://nl.wikipedia.org/wiki/Multiprocessing) is a technique that is often used in PHP (cli)
+applications to execute tasks asynchronously. Due to the lack of
+native [multithreading](https://en.wikipedia.org/wiki/Multithreading_(computer_architecture)) in PHP, developers have to
+rely on good old multiprocessing to do this.
 
 We often see code that's written in a quick and dirty way to accomplish this task, with calls to
 `pcntl_fork()` hidden somewhere, leading to ugly implementations.
 
-Toalett has nothing against quick and dirty PHP code. Toalett lives it. It _breathes_ it.
-But since multiprocessing so common, it might be nice to use this library.
+Toalett has nothing against quick and dirty PHP code, but since multiprocessing so common, it might be nice to use this
+library.
 
-## Okay, cool, but... How?
-`toalett/multiprocessing` comes with the handy-dandy `ContextBuilder` class which is used to build a `Context`. 
-A `Context` is the central component of this library. It schedules tasks to the `Workers`. 
-Workers are a representation of child processes that are working on a task.
+## Okay, how do I use it?
 
-The Context uses a [ReactPHP EventLoop](https://reactphp.org/event-loop/) internally 
-and emits events using the simple (but elegant) [Evenement](https://github.com/igorw/Evenement) library.
+### Structure
+
+The library provides a single class to manage multiprocessing: the [`Context`](src/Context.php). It
+uses [`react/event-loop`](https://reactphp.org/event-loop/) internally and emits events using the simple (but
+elegant) [`evenement/evenement`](https://github.com/igorw/Evenement) library. It delegates tasks to the
+internal [`Workers`](src/Workers.php) component, which in turn is responsible for creating and managing child processes.
+
+### Creating a [`Context`](src/Context.php)
+
+This library comes with the [`ContextBuilder`](src/ContextBuilder.php) class which is used to build
+a [`Context`](src/Context.php). It can be supplied with a [`Concurrency`](src/Concurrency.php) limit (defaults to
+unlimited), a custom instance of `\React\EventLoop\LoopInterface` and an [`Interval`](src/Task/Interval.php) at which a
+cleanup of child processes should be performed. To create a [`Context`](src/Context.php), you simply call the `build()`
+method:
+
+```php
+use Toalett\Multiprocessing\ContextBuilder;
+
+$builder = ContextBuilder::create();
+$context = $builder->build();
+```
+
+### Submitting a job
+
+Use the `Context::submit` method to submit a job:
+
+```php
+use Toalett\Multiprocessing\ContextBuilder;
+
+$context = ContextBuilder::create()->build();
+
+$job = static function(string $name) {
+    print("Hello from {$name}!\n");
+    usleep(500_000);
+    print("Goodbye from ${name}!\n");
+};
+
+$context->submit($job, 'John Snow');
+```
+
+Jobs are not executed until the `Context::run` method is called.  
+In order to execute this job 5 times, using at most two processes, we would do:
+
+```php
+use Toalett\Multiprocessing\Concurrency;
+use Toalett\Multiprocessing\ContextBuilder;
+
+$context = ContextBuilder::create()
+    ->withConcurrency(Concurrency::atMost(2))
+    ->build();
+
+// $job = function(...)...
+
+foreach(['John', 'Stannis', 'Jorah', 'Robert', 'Daario'] as $name) {
+    $context->submit($job, $name);
+}
+
+$context->run();
+```
+
+If you want to submit a job using an interval, you are encouraged to use a custom event loop instead of `sleep()`
+or `usleep()` to prevent blocking the main process (and thus pausing the event loop):
+
+```php
+use React\EventLoop\Factory;
+use Toalett\Multiprocessing\ContextBuilder;
+
+$loop = Factory::create();
+$context = ContextBuilder::create()
+    ->withEventLoop($loop)
+    ->build();
+
+// Submit a job every 5 seconds
+$loop->addPeriodicTimer(5.0, fn() => $context->submit(...));
+$context->run();
+```
 
 ## Events
 
-The context emits events when something of interest happens.
-You can react to these events by calling:  
-`$context->on('name_of_event', fn() => ...);`.
+The context emits events when something of interest happens. You can add event listeners using the `Context::on` method:
+
+```php
+$context->on('name_of_event', fn() => ...);
+```
 
 These are the events emitted by the context:
 
@@ -38,57 +113,55 @@ These are the events emitted by the context:
 6. `no_workers_remaining`
 7. `stopped`
 
-#### 1. `booted`
-This event is emitted after `$context->run()` is called.
-This is the very first event dispatched by the context. 
-It is dispatched as soon as the event loop has started.
+#### 1. The `booted` event
 
-#### 2. `worker_started`
-This event is emitted when a worker has been started (the process has been forked).
-The PID of the child process is supplied as an argument to a listener.
+This event is emitted after `$context->run()` is called. This is the very first event dispatched by the context. It is
+dispatched as soon as the event loop has started.
 
-#### 3. `worker_stopped`
-This event is emitted when a worker has been stopped (child process has stopped).
-The PID of the child process is supplied as an argument to a listener.
+#### 2. The `worker_started` event
 
-#### 4. `congestion`
-This event is emitted when the imposed concurrency limit is reached.
-This happens when (for example) the concurrency is set to at most 2 child processes, 
-and a third task gets submitted while 2 tasks are already running. 
-The system naively waits for a child to stop before starting another worker.
+This event is emitted when a worker has been started (the process has been forked). The PID of the child process is
+supplied as an argument to a listener.
 
-#### 5. `congestion_relieved`
-This event is emitted when congestion is relieved. 
-This means that a child has stopped, allowing for the execution of a new task.
+#### 3. The `worker_stopped` event
 
-#### 6. `no_workers_remaining`
-This event is emitted when there are no workers left running. 
-This usually means there is no more work to do. 
-It's possible to automatically stop the context when this event occurs. 
-This is shown in the first and last example.
+This event is emitted when a worker has been stopped (child process has stopped). The PID of the child process is
+supplied as an argument to a listener.
 
-#### 7. `stopped`
-The context can be stopped by calling `$context->stop()`.
-When the workers and the event loop are succesfully stopped, the context
-emits a `stopped` event.
+#### 4. The `congestion` event
+
+This event is emitted when the imposed concurrency limit is reached. This happens when (for example) the concurrency is
+set to at most 2 child processes, and a third task gets submitted while 2 tasks are already running. The system naively
+waits for a child to stop before starting another worker.
+
+#### 5. The `congestion_relieved` event
+
+This event is emitted when congestion is relieved. This means that a child has stopped, allowing for the execution of a
+new task.
+
+#### 6. The `no_workers_remaining` event
+
+This event is emitted when there are no workers left running. This usually means there is no more work to do. It's
+possible to automatically stop the context when this event occurs. This is shown in the first and last example.
+
+#### 7. The `stopped` event
+
+The context can be stopped by calling `Context::stop`. When the workers and the event loop are succesfully stopped, the
+context emits a `stopped` event.
 
 ## Examples
-For most developers, the quickest way to learn something is by looking at examples. 
-Three examples are provided.
 
-There is a simple example, which demonstrates event emission with the creation of 50 jobs.
-A counter is incremented every time a job stops.
-When all jobs are done, the context is stopped.
-
-The cleanup interval is the interval at which the context checks for dead 
-worker processes and reads their exit codes.
-It defaults to 5 seconds and is in some examples explicitely set to a low 
-value to improve example responsiveness.
+For most developers, the quickest way to learn something is by looking at examples. Three executable examples are
+provided.
 
 ### [Counting stopped workers using events](bin/counting_stopped_workers.php)
-```php
-<?php
 
+This is a simple example, which demonstrates event emission with the creation of 50 jobs. A counter is incremented every
+time a job stops. When all jobs are done, the context is stopped.
+
+The cleanup interval may be set to a low value to improve responsiveness.
+
+```php
 use Toalett\Multiprocessing\ContextBuilder;
 use Toalett\Multiprocessing\Task\Interval;
 
@@ -112,15 +185,14 @@ $context->run();
 ```
 
 ### [Triggering congestion with 4 workers](bin/triggering_congestion.php)
-This example is a bit more elaborate than the previous one.
-It serves to demonstrate congestion and how it is handled by the context: 
+
+This example is a bit more elaborate than the previous one. It serves to demonstrate congestion and how it is handled by
+the context:
 the context simply blocks all execution until a worker stops and a spot becomes available.
 
-Watch for the occurence of 'C' in the output. 
-This denotes congestion: a worker could not be started.
-```php
-<?php
+Watch for the occurence of 'C' in the output. This denotes congestion: a worker could not be started.
 
+```php
 use React\EventLoop\Factory;
 use Toalett\Multiprocessing\ContextBuilder;
 use Toalett\Multiprocessing\Concurrency;
@@ -146,15 +218,14 @@ $context->run();
 ```
 
 ### [Single worker with a Job class](bin/single_worker_with_job_class.php)
-Since a task is really just a `Closure`, it's also possible to submit an object 
-with an implementation of the `__invoke()` magic method. 
 
-In this example, execution is limited to a single worker, and jobs are 
-instances of the `Job` class.
+Since a task is really just a [`Closure`](https://www.php.net/manual/en/class.closure.php), it's also possible to submit
+an object with an implementation of the `__invoke()` magic method.
+
+In this example, execution is limited to a single worker, and jobs are instances of the [`Job`](bin/classes/Job.php)
+class.
 
 ```php
-<?php
-
 use Toalett\Multiprocessing\Concurrency;
 use Toalett\Multiprocessing\ContextBuilder;
 use Toalett\Multiprocessing\Task\Interval;
@@ -174,4 +245,5 @@ $context->run();
 ```
 
 ## Tests
-Tests can be found in the [src/Tests/](src/Tests) directory.
+
+Tests can be found in the [`src/Tests`](src/Tests) directory.
