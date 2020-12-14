@@ -86,8 +86,7 @@ class Workers implements Countable, EventEmitterInterface
             $this->remove($wait->pid);
             return true;
         }
-        // We ignore errors ($pid < 0). This method is called periodically, even if there is
-        // no child available. pcntl_wait() will return -1. This is expected behavior.
+
         return false;
     }
 
