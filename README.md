@@ -18,6 +18,12 @@ library.
 
 ## Okay, how do I use it?
 
+Install it with [composer](https://getcomposer.org/):
+
+```sh
+$ composer require toalett/multiprocessing
+```
+
 ### Structure
 
 The library provides a single class to manage multiprocessing: the [`Context`](src/Context.php). It
