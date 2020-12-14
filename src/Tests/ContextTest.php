@@ -73,7 +73,7 @@ class ContextTest extends TestCase
             ->method('futureTick')
             ->with(self::emptyCallable());
 
-        $context->submit(static fn() => null);
+        $context->submit(self::emptyCallable());
     }
 
     public function testItRegistersMaintenanceTasksOnTheEventLoop(): void
