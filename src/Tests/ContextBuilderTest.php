@@ -7,7 +7,6 @@ use React\EventLoop\LoopInterface;
 use Toalett\Multiprocessing\Concurrency;
 use Toalett\Multiprocessing\ContextBuilder;
 use Toalett\Multiprocessing\Tests\Tools\PropertyInspector;
-use Toalett\Multiprocessing\Workers;
 
 class ContextBuilderTest extends TestCase
 {
@@ -65,16 +64,5 @@ class ContextBuilderTest extends TestCase
         $usedConcurrency = $this->getProperty($context, 'concurrency');
 
         self::assertSame($concurrency, $usedConcurrency);
-    }
-
-    public function testWhenGivenWorkersItUsesThatWorkers(): void
-    {
-        $builder = ContextBuilder::create();
-        $workers = $this->createMock(Workers::class);
-
-        $context = $builder->withWorkers($workers)->build();
-        $usedWorkers = $this->getProperty($context, 'workers');
-
-        self::assertSame($workers, $usedWorkers);
     }
 }

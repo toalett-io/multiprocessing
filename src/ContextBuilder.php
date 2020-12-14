@@ -32,13 +32,6 @@ class ContextBuilder
         return $instance;
     }
 
-    public function withWorkers(Workers $workers): self
-    {
-        $instance = clone $this;
-        $instance->workers = $workers;
-        return $instance;
-    }
-
     public function withCleanupInterval(Interval $interval): self
     {
         $instance = clone $this;
