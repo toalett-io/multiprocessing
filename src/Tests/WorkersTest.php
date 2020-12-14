@@ -7,10 +7,13 @@ use ReflectionObject;
 use Toalett\Multiprocessing\ProcessControl\Fork;
 use Toalett\Multiprocessing\ProcessControl\ProcessControl;
 use Toalett\Multiprocessing\ProcessControl\Wait;
+use Toalett\Multiprocessing\Tests\Tools\CallableProvider;
 use Toalett\Multiprocessing\Workers;
 
 class WorkersTest extends TestCase
 {
+    use CallableProvider;
+
     public function testItSaysItIsEmptyWhenNoWorkers(): void
     {
         $processControl = $this->createMock(ProcessControl::class);
@@ -22,7 +25,7 @@ class WorkersTest extends TestCase
     {
         $workers = new Workers();
 
-        $workers->createWorkerFor(fn() => exit(0), []);
+        $workers->createWorkerFor(self::emptyCallable(), []);
         self::assertCount(1, $workers);
     }
 
@@ -30,11 +33,11 @@ class WorkersTest extends TestCase
     {
         $workers = new Workers();
 
-        $workers->createWorkerFor(fn() => exit(0), []);
-        $workers->createWorkerFor(fn() => exit(0), []);
+        $workers->createWorkerFor(self::emptyCallable(), []);
+        $workers->createWorkerFor(self::emptyCallable(), []);
         self::assertCount(2, $workers);
 
-        $workers->createWorkerFor(fn() => exit(0), []);
+        $workers->createWorkerFor(self::emptyCallable(), []);
         self::assertCount(3, $workers);
 
         $workers->stop();
@@ -51,7 +54,7 @@ class WorkersTest extends TestCase
         });
 
         self::assertFalse($workerStartedEventHasTakenPlace);
-        $workers->createWorkerFor(fn() => exit(0), []);
+        $workers->createWorkerFor(self::emptyCallable(), []);
         self::assertTrue($workerStartedEventHasTakenPlace);
     }
 
@@ -59,8 +62,8 @@ class WorkersTest extends TestCase
     {
         $workers = new Workers();
         $reflector = new ReflectionObject($workers);
-        $method = $reflector->getMethod('remove');
-        $method->setAccessible(true);
+        $remove = $reflector->getMethod('remove');
+        $remove->setAccessible(true);
 
         $workerStoppedEventHasTakenPlace = false;
         $workers->on('worker_stopped', function () use (&$workerStoppedEventHasTakenPlace) {
@@ -68,7 +71,7 @@ class WorkersTest extends TestCase
         });
 
         self::assertFalse($workerStoppedEventHasTakenPlace);
-        $method->invoke($workers, 0);
+        $remove->invoke($workers, 0);
         self::assertTrue($workerStoppedEventHasTakenPlace);
     }
 
@@ -94,7 +97,7 @@ class WorkersTest extends TestCase
             ->willReturn(new Fork(1));
 
         $workers = new Workers($processControl);
-        $workers->createWorkerFor(fn() => []);
+        $workers->createWorkerFor(self::emptyCallable());
     }
 
     public function testItCallsNonBlockingWaitOnProcessControlWhenPerformingCleanup(): void

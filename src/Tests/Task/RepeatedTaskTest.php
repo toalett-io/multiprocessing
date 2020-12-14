@@ -8,9 +8,12 @@ use React\EventLoop\LoopInterface;
 use React\EventLoop\Timer\Timer;
 use Toalett\Multiprocessing\Task\Interval;
 use Toalett\Multiprocessing\Task\RepeatedTask;
+use Toalett\Multiprocessing\Tests\Tools\CallableProvider;
 
 class RepeatedTaskTest extends TestCase
 {
+    use CallableProvider;
+
     /**
      * @param $interval
      * @dataProvider dataProvider
@@ -20,10 +23,10 @@ class RepeatedTaskTest extends TestCase
         $loop = $this->createMock(LoopInterface::class);
         $loop->expects(self::once())
             ->method('addPeriodicTimer')
-            ->with($interval->asFloat(), static fn() => null)
-            ->willReturn(new Timer($interval->asFloat(), static fn() => null, true));
+            ->with($interval->asFloat(), self::emptyCallable())
+            ->willReturn(new Timer($interval->asFloat(), self::emptyCallable(), true));
 
-        $task = new RepeatedTask($interval, static fn() => null);
+        $task = new RepeatedTask($interval, self::emptyCallable());
         $task->enable($loop);
     }
 
