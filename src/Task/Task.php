@@ -11,7 +11,7 @@ abstract class Task
     public array $arguments;
     protected ?TimerInterface $timer = null;
 
-    public function __construct(callable $callable, ...$arguments)
+    public function __construct(callable $callable, array $arguments)
     {
         $this->callable = $callable;
         $this->arguments = $arguments;
